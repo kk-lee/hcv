@@ -315,6 +315,88 @@ dat.ratio$se <- (dat.ratio$lgul-dat.ratio$lgll)/(2*1.96)
 
 num_iter <- 10000
 
+
+#### Plot by endpoint ####
+rr <- rma(yi = dat.ratio$lgrr,sei = dat.ratio$se, method = "ML", slab=dat.ratio$author) 
+rr.exp <- predict(rr, transf = exp, digits=2)
+
+rr.sim <- exp(rnorm(num_iter, as.vector(rr$b), rr$se))
+(quantile(rr.sim, probs = c(0.025,0.5, 0.975)))
+hist((rr.sim))
+
+
+
+par(mar=c(4,4,1,4), font=1)
+
+forest(rr, xlim=c(-3, 2), at=log(c(0.5,1,2,3,3.5)), atransf=exp,
+       ilab=dat.ratio$pub.year,
+       ilab.xpos=-1.5,cex=0.75, ylim=c(-1, 71),
+       order=rev(order(dat.ratio$outcome,dat.ratio$pub.year)),
+       rows=c(3:16,22:33,40:67),
+       xlab="Risk Ratio", mlab="",
+       col = "red", border="red")
+
+
+### add text with Q-value, dfs, p-value, and I^2 statistic
+text(-3, -1, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
+                                           .(formatC(rr$QE, digits=2, format="f")), ", df = ", .(rr$k - rr$p),
+                                           "; ", I^2, " = ",.(formatC(rr$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(rr)[[1]][[7]], digits=1, format="f")),
+                                           " - ",
+                                           .(formatC(confint(rr)[[1]][[11]], digits=1, format="f")),
+                                           "])")))
+
+### set font expansion factor (as in forest() above) and use bold italic
+### font and save original settings in object 'op'
+op <- par(cex=0.70, font=4)
+
+### add text for the subgroups
+text(-3, c(68,34,17), pos=4, c("Cardiovascular events",
+                               "Myocardial infarction",
+                               "Stroke"))
+
+### switch to bold font
+par(font=2)
+
+### add column headings to the plot
+text(-3,70, "Author(s)",  pos=4)
+text(-1.5,70,"Year")
+text(2,70, "Risk Ratio [95% CI]", pos=2)
+
+### set par back to the original settings
+par(op)
+
+
+### fit random-effects model in the three subgroups
+res.c <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="CVD",],method = "ML") 
+res.m <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="MI",],method = "ML") 
+res.s <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="Stroke",],method = "ML") 
+
+
+### add summary polygons for the three subgroups
+addpoly(res.c, row=38.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
+addpoly(res.m, row= 20.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
+addpoly(res.s, row= 1.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
+
+### add text with Q-value, dfs, p-value, and I^2 statistic for subgroups
+text(-3, 38.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
+                                             .(formatC(res.c$QE, digits=2, format="f")), ", df = ", .(res.c$k - res.c$p),
+                                             "; ", I^2, " = ",.(formatC(res.c$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.c)[[1]][[7]], digits=1, format="f")),
+                                             " - ",
+                                             .(formatC(confint(res.c)[[1]][[11]], digits=1, format="f")),
+                                             "])")))
+text(-3, 20.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
+                                             .(formatC(res.m$QE, digits=2, format="f")), ", df = ", .(res.m$k - res.m$p),
+                                             "; ", I^2, " = ",.(formatC(res.m$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.m)[[1]][[7]], digits=1, format="f")),
+                                             " - ",
+                                             .(formatC(confint(res.m)[[1]][[11]], digits=1, format="f")),
+                                             "])")))
+text(-3, 1.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
+                                            .(formatC(res.s$QE, digits=2, format="f")), ", df = ", .(res.s$k - res.s$p),
+                                            "; ", I^2, " = ",.(formatC(res.s$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.s)[[1]][[7]], digits=1, format="f")),
+                                            " - ",
+                                            .(formatC(confint(res.s)[[1]][[11]], digits=1, format="f")),
+                                            "])")))
+
 ####Combine multiple estimates from same study ####
 #study 371
 dat.ratio371 <- subset(dat.ratio,dat.ratio$study.id==371)
@@ -413,16 +495,6 @@ rr.sim <- exp(rnorm(num_iter, as.vector(rr$b), rr$se))
 (quantile(rr.sim, probs = c(0.025,0.5, 0.975)))
 hist((rr.sim))
 
-#### publication bias ####
-regtest(rr)
-predict(trimfill(rr))
-funnel(rr)
-funnel(trimfill(rr))
-
-#heterogeneity
-confint(rr)
-
-
 #### Plot for overall ratio ####
 
 #dat.ratio.overall <- dat.ratio.overall[order(dat.ratio.overall$pub.year),]
@@ -469,89 +541,14 @@ text(2.19,46, "Risk Ratio [95% CI]", pos=2)
 par(op)
 
 
+#### publication bias ####
+regtest(rr)
+predict(trimfill(rr))
+funnel(rr)
+funnel(trimfill(rr))
 
-
-#### Plot by endpoint ####
-rr <- rma(yi = dat.ratio$lgrr,sei = dat.ratio$se, method = "ML", slab=dat.ratio$author) 
-rr.exp <- predict(rr, transf = exp, digits=2)
-
-rr.sim <- exp(rnorm(num_iter, as.vector(rr$b), rr$se))
-(quantile(rr.sim, probs = c(0.025,0.5, 0.975)))
-hist((rr.sim))
-
-
-
-par(mar=c(4,4,1,4), font=1)
-
-forest(rr, xlim=c(-3, 2), at=log(c(0.5,1,2,3,3.5)), atransf=exp,
-       ilab=dat.ratio$pub.year,
-       ilab.xpos=-1.5,cex=0.75, ylim=c(-1, 71),
-       order=rev(order(dat.ratio$outcome,dat.ratio$pub.year)),
-       rows=c(3:16,22:33,40:67),
-       xlab="Risk Ratio", mlab="",
-       col = "red", border="red")
-
-
-### add text with Q-value, dfs, p-value, and I^2 statistic
-text(-3, -1, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
-                                           .(formatC(rr$QE, digits=2, format="f")), ", df = ", .(rr$k - rr$p),
-                                           "; ", I^2, " = ",.(formatC(rr$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(rr)[[1]][[7]], digits=1, format="f")),
-                                           " - ",
-                                           .(formatC(confint(rr)[[1]][[11]], digits=1, format="f")),
-                                           "])")))
-
-### set font expansion factor (as in forest() above) and use bold italic
-### font and save original settings in object 'op'
-op <- par(cex=0.70, font=4)
-
-### add text for the subgroups
-text(-3, c(68,34,17), pos=4, c("Cardiovascular events",
-                               "Myocardial infarction",
-                               "Stroke"))
-
-### switch to bold font
-par(font=2)
-
-### add column headings to the plot
-text(-3,70, "Author(s)",  pos=4)
-text(-1.5,70,"Year")
-text(2,70, "Risk Ratio [95% CI]", pos=2)
-
-### set par back to the original settings
-par(op)
-
-
-### fit random-effects model in the three subgroups
-res.c <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="CVD",],method = "ML") 
-res.m <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="MI",],method = "ML") 
-res.s <- rma(yi = lgrr,sei = se, data = dat.ratio[dat.ratio$outcome=="Stroke",],method = "ML") 
-
-
-### add summary polygons for the three subgroups
-addpoly(res.c, row=38.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
-addpoly(res.m, row= 20.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
-addpoly(res.s, row= 1.5, cex=0.75, atransf=exp, mlab="",col = "blue", border="blue")
-
-### add text with Q-value, dfs, p-value, and I^2 statistic for subgroups
-text(-3, 38.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
-                                             .(formatC(res.c$QE, digits=2, format="f")), ", df = ", .(res.c$k - res.c$p),
-                                             "; ", I^2, " = ",.(formatC(res.c$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.c)[[1]][[7]], digits=1, format="f")),
-                                             " - ",
-                                             .(formatC(confint(res.c)[[1]][[11]], digits=1, format="f")),
-                                             "])")))
-text(-3, 20.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
-                                             .(formatC(res.m$QE, digits=2, format="f")), ", df = ", .(res.m$k - res.m$p),
-                                             "; ", I^2, " = ",.(formatC(res.m$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.m)[[1]][[7]], digits=1, format="f")),
-                                             " - ",
-                                             .(formatC(confint(res.m)[[1]][[11]], digits=1, format="f")),
-                                             "])")))
-text(-3, 1.5, pos=4, cex=0.70, bquote(paste("RE Model for All Studies (Q = ",
-                                            .(formatC(res.s$QE, digits=2, format="f")), ", df = ", .(res.s$k - res.s$p),
-                                            "; ", I^2, " = ",.(formatC(res.s$I2, digits=1, format="f")), "%"," [95% CI ",.(formatC(confint(res.s)[[1]][[7]], digits=1, format="f")),
-                                            " - ",
-                                            .(formatC(confint(res.s)[[1]][[11]], digits=1, format="f")),
-                                            "])")))
-
+#heterogeneity
+confint(rr)
 
 
 #### subgroup analysis ####
@@ -634,17 +631,17 @@ write.csv(subgroups, "data_derived/eTable 1.csv")
 
 # load country data into R with ISO country code
 
-country.iso <- read.csv("country.isocode.csv",header = T)
+country.iso <- read.csv("data_raw/country.isocode.csv",header = T)
 country.iso$countryid <- 1:247
 
 # combine ISO country code and GBD regions
-country.gbd.regions <- read.csv("ihme.gbd.regions.csv", header=T)
+country.gbd.regions <- read.csv("data_raw/ihme.gbd.regions.csv", header=T)
 combined.iso.region <- merge(x = country.gbd.regions, y = country.iso, by.x ="location_name", by.y = "country",all.x=T, all.y=T)
 names(combined.iso.region) <- c("country", "gbd.region", "country.iso", "countryid")
 
 # load daly data - country specific but in one file
 
-dat <- read.csv("IHME-GBD_2015_DATA.csv",header = T)
+dat <- read.csv("data_raw/IHME-GBD_2015_DATA.csv",header = T)
 dat$location_name <- as.character(dat$location_name)
 
 #match country names to UN and relabel unmatched names 
@@ -809,7 +806,7 @@ daly$area.id <- factor(daly$area,
 ## Part 2b - load prevalence files
 ##=================================
 
-hcv.prev <- read.csv("prev.gbd.region.csv",header = T,stringsAsFactors = F)
+hcv.prev <- read.csv("data_raw/prev.gbd.region.csv",header = T,stringsAsFactors = F)
 
 ##=========================================
 ## Part 2c - merge prevelance data to daly
@@ -910,11 +907,11 @@ final$burdenul <-final$burdenul/1000
 ##                  COUNTRY LEVEL
 ##==============================================
 
-##sort prevalence by country, age, gender
+##sort prevalence by country, age, gender ####
 
-prev.males <- read.csv("polaris.males.csv",header = T,na.strings = "")
-prev.females <- read.csv("polaris.females.csv", header=T, na.strings = "")
-prev.both<- read.csv("polaris.both.csv", header=T, na.strings = "")
+prev.males <- read.csv("data_raw/polaris.males.csv",header = T,na.strings = "")
+prev.females <- read.csv("data_raw/polaris.females.csv", header=T, na.strings = "")
+prev.both<- read.csv("data_raw/polaris.both.csv", header=T, na.strings = "")
 
 
 country <- colnames(prev.males[, !names(prev.males) %in% c("group", "age.cat")]) 
@@ -1067,7 +1064,7 @@ for(i in 1:nrow(countryleveldata)){
   countryleveldata$paful[i] <- quantile(p,0.975,na.rm = T)
 }
 
-## total age and sex stratified Burden by country
+## total age and sex stratified Burden by country ####
 countryleveldata$'Total.Population' <- as.numeric(countryleveldata$'Total.Population')
 countryleveldata$'Viremic.Population' <- as.numeric(countryleveldata$'Viremic.Population')
 countryleveldata$country <- as.character(countryleveldata$country)
@@ -1127,9 +1124,9 @@ countryleveldata.total[,c("pafce","paful","pafll")] <- lapply(countryleveldata.t
 countryleveldata.total[,c("pafce", "pafll", "paful")] <- lapply(countryleveldata.total[,c("pafce", "pafll", "paful")], function(x){round(as.numeric(x),digits=2)})
 countryleveldata.total$paf <-paste0(countryleveldata.total$pafce," ","(",countryleveldata.total$pafll,"-",countryleveldata.total$paful,")") 
 
-write.csv(countryleveldata.total, "countrylevelpaf.csv")
+write.csv(countryleveldata.total, "data_derived/countrylevelpaf.csv")
 
-## Plot cartogram for country level data
+## Plot cartogram for country level data ####
 countryleveldata$burdenC <- (as.numeric(countryleveldata$burdence)/as.numeric(countryleveldata$Total.Population))*100000000
 countryleveldata.table <- countryleveldata
 
@@ -1161,10 +1158,10 @@ mapParams<-mapCountryData(sPDF, nameColumnToPlot="burdenCcat", mapTitle=' ', col
 
 
 
-## Plot cartogram for regional data
+## Plot cartogram for regional data ####
 regionaldata <- merge(x= combined.iso.region, y= final, by="gbd.region")
 regionaldata$pafp <- as.numeric(regionaldata$pafce)*100000
-
+regionaldata[regionaldata$gbd.region=="Central Asia", "pafp"] <- 700
 countryData<-regionaldata
 data(countryData)
 sPDF<-joinCountryData2Map(countryData, joinCode= "ISO3", nameJoinColumn= "country.iso")
@@ -1184,7 +1181,7 @@ final[,c("pafce", "pafll", "paful")] <- lapply(final[,c("pafce", "pafll", "paful
 final$paf <-paste0(final$pafce," ","(",final$pafll,"-",final$paful,")") 
 
 table1 <- final[,c(2,23,24)]
-write.csv(table1, "regions.csv")
+write.csv(table1, "data_derived/regions.csv")
 
 countryleveldata.table
 
@@ -1201,11 +1198,11 @@ countryleveldata.table[,c("pafce", "pafll", "paful")] <- lapply(countryleveldata
 countryleveldata.table$paf <-paste0(countryleveldata.table$pafce," ","(",countryleveldata.table$pafll,"-",countryleveldata.table$paful,")") 
 
 countryleveldata.table.final <- countryleveldata.table[,c(1,3,13:15)]
-write.csv(countryleveldata.table.final, "burden.bycountry.csv")
+write.csv(countryleveldata.table.final, "data_derived/burden.bycountry.csv")
 
 
 
-## Calculate PAF by age strata
+## Calculate PAF by age strata ####
 cld2 <- countryleveldata2
 
 #both genders
@@ -1311,7 +1308,7 @@ for(i in 1:nrow(cld2.male)){
   cld2.male$paful[i] <- quantile(p,0.975,na.rm = T)
 }
 
-#graph of PAF by age group
+#graph of PAF by age group ####
 cld2.both[,17:19] <- cld2.both[,17:19]*100
 cld2.female[,17:19] <- cld2.female[,17:19]*100
 cld2.male[,17:19] <- cld2.male[,17:19]*100
@@ -1384,7 +1381,7 @@ scale_x_continuous(name="\nAge (years)")+
   theme_light()
 
 
-## Burden by gender
+## Burden by gender ####
 cld2[,c(5:9)] <- lapply(cld2[,c(5:9)], as.numeric)
 cld2[,c("daly.ce","daly.ul","daly.ll")] <- lapply(cld2[,c("daly.ce","daly.ul","daly.ll")],function(x){log(x,base=exp(1))})
 cld2$nm_se <- (as.numeric(cld2$daly.ul)-as.numeric(cld2$daly.ll))/3.92
@@ -1499,8 +1496,8 @@ p9 <- p9+theme(axis.text.x = element_text(size=12,hjust=.5,vjust=.8,face="plain"
 p9 <- p9+theme(axis.title.x = element_text(size=14,face="bold"),axis.title.y = element_text(size=14,face="bold"))
 p9
 
-## plot by income
-wb <- read.csv("WorldBankIncome.csv")
+## plot by income ####
+wb <- read.csv("data_raw/WorldBankIncome.csv")
 cld2.income <- merge(x = cld2, y = wb, by.x ="country", by.y = "Economy",all.x=T, all.y=F)
 cld2.income <- cld2.income[,c(1:9,14:16,25)]
 cld2.income$Income.group <- revalue(cld2.income$Income.group, c("High income"= "H", "Low income"="LM", "Lower middle income"="LM", "Upper middle income"="LM"))
@@ -1541,7 +1538,7 @@ x <- filter(cld2.income, cld2.income$age.cat=="80+")
 x$Income.group <- as.factor(x$Income.group)
 nrow(filter(x, x$Income.group=="H"))
 
-## eTable 4
+## eTable Burden of HCV by country ####
 tab4$'Total.Population' <- as.numeric(tab4$'Total.Population')
 tab4$'Viremic.Population' <- as.numeric(tab4$'Viremic.Population')
 tab4$country <- as.character(tab4$country)
@@ -1561,19 +1558,19 @@ tab4[,c("daly.ce", "daly.ll", "daly.ul")] <- lapply(tab4[,c("daly.ce", "daly.ll"
 tab4$CVD <-paste0(tab4$daly.ce," ","(",tab4$daly.ll,"-",tab4$daly.ul,")") 
 tab4$HCV <- countryleveldata.table$burden.C
 tab4 <- tab4[,c(1,8,9,12,13)]
-write.csv(tab4, "tab4.csv")
+write.csv(tab4, "data_derived/eTable.burdenbycountry.csv")
 
 
-## eTable 3
+## eTable Burden of HCV by age group ####
 tab3 <- cld2.both[,c(2,8,9,17:19)]
 tab3[,c("pafce", "pafll", "paful")] <- lapply(tab3[,c("pafce", "pafll", "paful")], function(x){round(as.numeric(x),digits=2)})
 tab3$paf <-paste0(tab3$pafce," ","(",tab3$pafll,"-",tab3$paful,")") 
 tab3$burden <- cld2.bd.both[,"burden"]
 tab3 <- tab3[,c(1:3,7:8)]
-write.csv(tab3, "tab3.csv")
+write.csv(tab3, "data_derived/eTable.burdenbyage.csv")
 
 
-## eTable 5
+## eTable Burden of HCV by income group ####
 dat[,c("burdence", "burdenll", "burdenul")] <- lapply(dat[,c("burdence", "burdenll", "burdenul")], function(x){round(as.numeric(x),digits=2)})
 dat$burden <-paste0(dat$burdence," ","(",dat$burdenll,"-",dat$burdenul,")") 
 dat2[,c("burdence", "burdenll", "burdenul")] <- lapply(dat2[,c("burdence", "burdenll", "burdenul")], function(x){round(as.numeric(x),digits=2)})
@@ -1582,10 +1579,12 @@ dat2$burden <-paste0(dat2$burdence," ","(",dat2$burdenll,"-",dat2$burdenul,")")
 tab5 <- dat[,c(2,15)]
 names(tab5)[2] <- "High-income"
 tab5$LMIC <- dat2[,"burden"]
-write.csv(tab5, "tab5.csv")
+write.csv(tab5, "data_derived/eTable.burdenbyincome.csv")
 
 
 ## Ukraine calculation
+dev.off()
+
 hist((rr.sim), breaks=100, border="blue", main= "Histogram for Risk Ratio", xlab="Risk ratio")
 
 x <- rbeta(10000, 83800, 418200)
@@ -1618,7 +1617,7 @@ ukraine[,c("daly.ce", "daly.ll", "daly.ul")] <- lapply(ukraine[,c("daly.ce", "da
 ukraine$daly <-paste0(ukraine$daly.ce," ","(",ukraine$daly.ll,"-",ukraine$daly.ul,")") 
 
 
-write.csv(ukraine, "ukraine.csv")
+write.csv(ukraine, "data_derived/ukraine.csv")
 
 
 
